@@ -1,0 +1,11 @@
+This document rescribes the design decisions for "kipstash"
+
+- keep the server as stupid as possible
+-- the server does not need to know who owns a certain file
+
+Creation of File-ID-Hashes (FIH)
+=================================
+
+Every time a new file is about to be added to the Server, the client will generate a unique Identifier we call File-ID-Hash (or short FIH). The FIH stays attached to this file as long as it exists within the server namespace. The FIH ist created by calculating the SHA-512 Hash of the original file salted with a random value that will not be stored. This way an attacker can not determine if someone has stored a certain file within the service. This also get us around possible collisions if two different users upload the exact same file to the service.
+
+
