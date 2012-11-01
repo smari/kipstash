@@ -1,9 +1,30 @@
-kipstach aims to provide a secure remote data-storage.
+kipstach aims to provide a secure, privacy friendly, remote data-storage. 
+That can be used to store and share information.
 
-Secure in this context means:
+Features:
+
 * open source
 * easy to use
-* protect data from beeing read by unauthorized parties while stored on the server
-* protect data from beeing maipulated while stored on the server
 * have the option to run your own server
+
+Secure in this context means:
+* protect data from beeing read by unauthorized parties while stored on 
+  the server
+* protect data from beeing maipulated by unauthorized parties while stored on 
+  the server
+* protect data from beeing read or manipulated while in transit toward 
+  the server
+
+privacy friendly in this context means:
+* the server knows as little as possible about its users.
+* the server knows as little as possible about the content stored by users.
+
+Share data:
+
+In order to share data two requirements need to be solved:
+# you need to have the public key of users you want to share data with.
+# you need to put the data on a server both of you have access to.
+
+See doc/IDEAS for ideas how to overcome the requirement that users need to 
+have access to the same server in order to share.
 
