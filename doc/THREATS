@@ -1,0 +1,14 @@
+Threat 001: Someone can delete data stored with the service
+Threat 002: Someone can alter data stored with the server
+Threat 003: Someone can read other users data
+Threat 004: Someone can find out who you share with
+Threat 005: Someone can find out that a certain person is using the service
+Threat 006: Someone can find out what data a certain user is storing with the service
+Threat 007: Someone can force the service/server operator to reveal the identity of a user.
+Threat 008: Someone can force the service/server operator to delete certain data
+Threat 009: Someone could find out how many files are stored by a certain user
+Threat 010: Someone can find out how many files are stored with the service on the server.
+Threat 011: Someone can block access to the service/server for other users.
+Threat 012: Someone can find out a certain user has uploaded a certain file.
+Threat 013: Someone can circumvent users to use the service/server
+
