@@ -1,4 +1,4 @@
-#1/usr/bin/python
+#!/usr/bin/python
 
 from Crypto.PublicKey import RSA
 import ConfigParser
@@ -9,9 +9,18 @@ import _fam
 import getopt
 import socket, ssl
 import pprint
+import hashlib
 
 DEFAULT_SERVER_PORT = 3477
 DEFAULT_KEY_SIZE = 4097
+	
+
+def hash(filename):
+	h = hashlib.sha224()
+	try: fh = open(filename)
+	except: return ""
+	h.update(fh.read())
+	return h.hexdigest()
 
 def keys_generate(size=DEFAULT_KEY_SIZE):
 	keypair = RSA.generate(size)
@@ -52,16 +61,15 @@ def config_load(filename):
 def config_save(config, filename):
 	config.write(open(filename, "w"))
 
-def dirmap_load(filename):
-	pass
 
-def dirmap_save(filename):
-	pass
+def file_info(filename):
+	s = os.stat(filename)
+	return {"mode": s.st_mode, "size": s.st_size, "atime": s.st_atime, "mtime": s.st_mtime, "ctime": s.st_ctime}
 
-def filemap_load(filename):
-	pass
 
-def filemap_save(filename):
+def filemap_verify(filemap, dirmap, connection):
+	if filemap == {}:
+		return True
 	pass
 
 
@@ -102,32 +110,6 @@ def server_init(dir="~/.kipstash"):
 	return (config, priv, pub)	
 
 
-def client_init(dir="~/.kipstash"):
-	dir = os.path.expanduser(dir)
-	
-	if not os.path.exists(dir):
-		print "Initializing client for the first time ever. Generating keys and such."
-		os.mkdir(dir, 0700)
-		client_pubkey = open(dir+"/client.pub", "w")
-		client_privkey = open(dir+"/client.sec", "w")
-		priv, pub = keys_generate()
-		client_pubkey.write(pub)
-		client_privkey.write(priv)
-		client_pubkey.close()
-		client_privkey.close()
-		priv = get_privkey(priv)
-		pub = get_pubkey(pub)
-	else:
-		priv = get_privkey(open(dir+"/client.sec").read())
-		pub = get_pubkey(open(dir+"/client.pub").read())
-
-	dirmap = dirmap_load(dir+"/dir.map")
-	filemap = filemap_load(dir+"/file.map")
-	config = config_load(dir+"/kipstash.cfg")
-
-	return (config, dirmap, filemap, priv, pub)
-		
-
 def diff(file):
 	# bsdiff.Diff("foo", "boo")
 	pass
@@ -163,6 +145,13 @@ class DirectoryMonitor:
 			print event.userData,
 		print event.requestID,
 		print event.filename, event.code2str()
+		if event.code2str() == "created":
+			pass			
+
+		if event.code2str() == "changed":
+			pass
+
+			# self.connection.write("CHANGE EVENT ON %s\n" % event.filename)
 
 
 class ClientConnection:
@@ -190,6 +179,9 @@ class ClientConnection:
 			print e
 			sys.exit(0)
 
+	def write(self, data):
+		return self.ssl_sock.write(data)
+
 	def read(self):
 		return self.ssl_sock.read()
 
@@ -197,30 +189,110 @@ class ClientConnection:
 		self.ssl_sock.close()
 
 
-
-def client():
-	print "Client starting..."
-	(config, dirmap, filemap, priv, pub) = client_init()
+class KipClient:
+	def __init__(self):
+		print "Client starting..."
+		self.client_init()
 	
-	try:
-		server = config.get("client", "server")
-	except:
-		print "No servers configured. Quitting."
-		sys.exit(0)
-	print "Connecting to server %s" % server
-	con = ClientConnection(server)
+		try:
+			server = self.config.get("client", "server")
+		except:
+			print "No servers configured. Quitting."
+			sys.exit(0)
+		print "Connecting to server %s" % server
+		con = ClientConnection(server)
 
-	d = DirectoryMonitor(con)
-	try:
-		share_dir = config.get("client", "share_dir")
-	except:
-		print "No shares configured. Quitting."
-		sys.exit(0)
-	print "Sharing from %s" % share_dir
-	d.start(share_dir)
+		self.dirmon = DirectoryMonitor(con)
+		try:
+			share_dir = self.config.get("client", "share_dir")
+		except Exception, e:
+			print "No shares configured. Quitting."
+			sys.exit(0)
 
-	while True:
-		d.process()
+		print "Sharing from %s" % share_dir
+		self.share_add(share_dir)
+		self.dirmon.start(share_dir)
+
+		self.start()
+
+	def start(self):
+		while True:
+			self.dirmon.process()
+
+	def client_init(self, dir="~/.kipstash"):
+		dir = os.path.expanduser(dir)
+		self.workingdir = dir
+	
+		if not os.path.exists(dir):
+			print "Initializing client for the first time ever. Generating keys and such."
+			os.mkdir(dir, 0700)
+			client_pubkey = open(dir+"/client.pub", "w")
+			client_privkey = open(dir+"/client.sec", "w")
+			priv, pub = keys_generate()
+			client_pubkey.write(pub)
+			client_privkey.write(priv)
+			client_pubkey.close()
+			client_privkey.close()
+			self.priv = get_privkey(priv)
+			selfpub = get_pubkey(pub)
+		else:
+			self.priv = get_privkey(open(dir+"/client.sec").read())
+			self.pub = get_pubkey(open(dir+"/client.pub").read())
+	
+		self.dirmap_load()
+		self.filemap_load()
+		self.config = config_load(dir+"/kipstash.cfg")
+		self.config.set("client", "workingdir", dir)
+
+	def dirmap_load(self):
+		self.dirmap = {}
+		return {}
+
+	def dirmap_save(self):
+		pass
+
+
+	def filemap_load(self):
+		try:
+			fh = open(self.workingdir+"/file.map")
+			map = json.loads(fh.read())
+			fh.close()
+			print "File map loaded. %d entries." % len(map)
+		except Exception, e:
+			print "Error loading file map: ", e
+			map = {}
+		self.filemap = map
+		return map
+
+
+	def filemap_save(self):
+		fh = open(self.workingdir+"/file.map", "w")
+		fh.write(json.dumps(self.filemap))
+		fh.close()
+		print "File map saved"
+
+
+	def share_add(self, directory):
+	
+		for root, dirs, files in os.walk(directory):
+			print "Walking %s..." % root
+			for d in dirs:
+				print "DIR: %s" % d
+			for f in files:
+				filename = "%s/%s" % (root, f)
+				hv = hash(filename)
+				if not self.filemap.has_key(hv):
+					print "Found new file %s" % filename
+					self.filemap[hv] = file_info(filename)
+				else:
+					info = file_info(filename)
+					if info["mtime"] > self.filemap[hv]["mtime"]:
+						print "File has been altered while kipstash was down. Sync needed."
+					else:
+						self.filemap[hv] = info
+		self.filemap_save()
+
+			
 
 
 def server_clientmanage(stream):
@@ -256,7 +328,7 @@ def server():
 
 	while True:
 		newsocket, fromaddr = bindsocket.accept()
-		print "Client connected from %s..." % fromaddr
+		print "Client connected from %s:%d..." % fromaddr
 		connstream = ssl.wrap_socket(newsocket, server_side=True, 
 				certfile=server_certfile, keyfile=server_keyfile,
 				ssl_version=ssl.PROTOCOL_TLSv1)
@@ -281,4 +353,4 @@ if __name__ == "__main__":
 	if servermode:
 		server()
 	else:
-		client()
+		k = KipClient()
