@@ -15,6 +15,11 @@ Many not so computer savvy human rights activists around the world use dropbox t
 
 Therefore this projects tries to come up with a secure by default, robust and easy to use solution for activists.
 
+Git Repository
+==============
+
+The git repository is at: ssh://git@projects.grauenhagen.de:/kipstash.git, the repository is not public. If you want to help develop this software talk to scusi@snurn.de
+
 Files:
 ======
 
