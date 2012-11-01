@@ -10,16 +10,21 @@ import getopt
 import socket, ssl
 import pprint
 import hashlib
+import random
 
 DEFAULT_SERVER_PORT = 3477
 DEFAULT_KEY_SIZE = 4097
 	
 
-def hash(filename):
-	h = hashlib.sha224()
+def hash(filename, rand=False):
+	# if rand==True, then add 2000 random characters to the end of the file before hashing.
+	# For generating FIDHs.
+	h = hashlib.sha512()
 	try: fh = open(filename)
 	except: return ""
 	h.update(fh.read())
+	if rand:
+		h.update("::" + "".join(["".join(random.sample("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 4)) for x in range(500)]))
 	return h.hexdigest()
 
 def keys_generate(size=DEFAULT_KEY_SIZE):
@@ -64,7 +69,8 @@ def config_save(config, filename):
 
 def file_info(filename):
 	s = os.stat(filename)
-	return {"mode": s.st_mode, "size": s.st_size, "atime": s.st_atime, "mtime": s.st_mtime, "ctime": s.st_ctime}
+	hv = hash(filename)
+	return {"mode": s.st_mode, "size": s.st_size, "atime": s.st_atime, "mtime": s.st_mtime, "ctime": s.st_ctime, "hash": hv}
 
 
 def filemap_verify(filemap, dirmap, connection):
@@ -272,24 +278,47 @@ class KipClient:
 		print "File map saved"
 
 
+	def file_in_filemap(self, filename):
+		fidh = hash(filename, True)
+		return fidh
+
+	def file_verify(self, filename, fidh):
+		info = file_info(filename)
+		if info["mtime"] > self.filemap[fidh]["mtime"]:
+			print "File has been altered while kipstash was down. Sync needed."
+		else:
+			self.filemap[fidh] = info
+
+
 	def share_add(self, directory):
-	
+		if self.dirmap.has_key(directory):
+			print "Share already exists in directory map."
+		else:
+			print "New (previously mapped) share."
+			self.dirmap[directory] = {}
+
 		for root, dirs, files in os.walk(directory):
+			curname = root.split(directory)[1]
+			if not self.dirmap[directory].has_key(curname):
+				print "New directory %s found" % curname
+				self.dirmap[directory][curname] = []
+
 			print "Walking %s..." % root
 			for d in dirs:
-				print "DIR: %s" % d
+				# print "DIR: %s" % d
+				pass
+
 			for f in files:
 				filename = "%s/%s" % (root, f)
-				hv = hash(filename)
-				if not self.filemap.has_key(hv):
+				if not self.dirmap[directory][curname].has_key(f):
 					print "Found new file %s" % filename
-					self.filemap[hv] = file_info(filename)
+					fidh = self.file_in_filemap(filename):
+					self.dirmap[directory][curname][f] = fidh
 				else:
-					info = file_info(filename)
-					if info["mtime"] > self.filemap[hv]["mtime"]:
-						print "File has been altered while kipstash was down. Sync needed."
-					else:
-						self.filemap[hv] = info
+					self.file_verify(filename, fidh)
+					
+
+		self.dirmap_save()
 		self.filemap_save()
 
 			
