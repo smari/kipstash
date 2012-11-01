@@ -1,0 +1,6 @@
+* talk about scalability
+* how to take the project on from here
+* make a 'doc' folder and put documentation there
+* change README to more of a basic info and overview document for further documentation
+* make a threat model
+* 
