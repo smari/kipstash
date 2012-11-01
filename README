@@ -4,6 +4,10 @@ kip stash - a kind of open source secure dropbox / wuala replacement
 Authors: 
 ========
 
+Smari McCarthy
+Florian Walther
+Pablo
+
 Background:
 ===========
 
@@ -14,7 +18,7 @@ Therefore this projects tries to come up with a secure by default, robust and ea
 Files:
 ======
 
-kipstash.py             Client and Server.
+kipstash.py             Client and Server, it depends on config if it is a client or a server.
 
 ~/.kipstash/kipstash.cfg        INI-format config file containing [client] and [server] sections (depending on which you're intending to run
 ~/.kipstash/client.pub            Base64 encoded JSON format RSA public key generated for client    (only if kipstash has been run in client mode)
@@ -24,7 +28,6 @@ kipstash.py             Client and Server.
 
 cert.pem                    - For server operation, here is an SSL certificate, stored somewhere, referred to by kipstash.cfg
 key.pem                    - For server operation, here is an SSL private key, stored somewhere, referred to by kipstash.cfg
-
 
 Sample config file
 ==================
@@ -39,3 +42,28 @@ port = 3477
 ssl_cert = /home/smari/.kipstash/cert.pem
 ssl_key = /home/smari/.kipstash/key.pem
 
+Protocol
+========
+
+Blocks are transferred. Blocks have different types, including: File, Delta, Structure, Login and Query.
+
+Block format
+============
+
+[BEGIN RSA SIGNED BLOCK
+
+[BEGIN HEADER
+
+END HEADER]
+
+[BEGIN PAYLOAD
+
+[BEGIN RSA ENCRYPTED BLOCK
+
+PAYLOAD JSON FORMAT
+
+END RSA ENCRYPTED BLOCK]
+
+END PAYLOAD]
+
+END RSA SIGNED BLOCK ]
