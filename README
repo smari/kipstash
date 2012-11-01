@@ -1,1 +1,41 @@
-put readme content here
+kip stash - a kind of open source secure dropbox / wuala replacement
+====================================================================
+
+Authors: 
+========
+
+Background:
+===========
+
+Many not so computer savvy human rights activists around the world use dropbox to backup and share as well as work collaborative on files. There are several threats associated with dropbox like the fact that files are stored in dropbox are not encrypted by default so it can be retrieved in cleartext by third parties. Also the whole infrastructure is in the hand of one private corporation with can be set under pressure. Files are not secure agains manipulation (while stored on the server) and many more.
+
+Therefore this projects tries to come up with a secure by default, robust and easy to use solution for activists.
+
+Files:
+======
+
+kipstash.py             Client and Server.
+
+~/.kipstash/kipstash.cfg        INI-format config file containing [client] and [server] sections (depending on which you're intending to run
+~/.kipstash/client.pub            Base64 encoded JSON format RSA public key generated for client    (only if kipstash has been run in client mode)
+~/.kipstash/client.sec            Base64 encoded JSON format RSA private key generated for client   (only if kipstash has been run in client mode)
+~/.kipstash/server.pub          Base64 encoded JSON format RSA public key generated for server  (only if kipstash has been run in server mode)
+~/.kipstash/server.sec            Base64 encoded JSON format RSA private key generated for server  (only if kipstash has been run in server mode)
+
+cert.pem                    - For server operation, here is an SSL certificate, stored somewhere, referred to by kipstash.cfg
+key.pem                    - For server operation, here is an SSL private key, stored somewhere, referred to by kipstash.cfg
+
+
+Sample config file
+==================
+
+[client]
+share_dir = /home/smari/Public
+server = 127.0.0.1
+
+[server]
+hostname = 0.0.0.0
+port = 3477
+ssl_cert = /home/smari/.kipstash/cert.pem
+ssl_key = /home/smari/.kipstash/key.pem
+
