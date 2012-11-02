@@ -1,0 +1,6 @@
+We do need help to make this project real. We do look for people to help us in the following regards:
+
+* development
+  * We are looking for python developers with good crypto understanding.
+  * People with good protocol experience to help us design client server protocol
+  
