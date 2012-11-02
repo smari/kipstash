@@ -1,8 +1,6 @@
-kipstach aims to provide a secure, privacy friendly, remote data-storage. 
-That can be used to store and share information.
+kipstach aims to provide a secure, privacy friendly, remote data-storage, that can be used to store and share data.
 
 Features:
-
 * open source
 * easy to use
 * have the option to run your own server
@@ -20,7 +18,6 @@ privacy friendly in this context means:
 * the server knows as little as possible about the content stored by users.
 
 Share data:
-
 In order to share data two requirements need to be solved:
 # you need to have the public key of users you want to share data with.
 # you need to put the data on a server both of you have access to.
