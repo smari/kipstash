@@ -27,6 +27,13 @@ def hash(filename, rand=False):
 		h.update("::" + "".join(["".join(random.sample("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 4)) for x in range(500)]))
 	return h.hexdigest()
 
+
+def hash_string(string):
+	h = hashlib.sha512()
+	h.update(string)
+	return h.hexdigest()
+
+
 def keys_generate(size=DEFAULT_KEY_SIZE):
 	keypair = RSA.generate(size)
 	privkey = keypair.__getstate__()
@@ -127,10 +134,10 @@ def patch(file):
 
 
 class DirectoryMonitor:
-	def __init__(self, connection):
+	def __init__(self, client):
 		self.fam = _fam.open()
 		self.mon = None
-		self.connection = connection
+		self.client = client
 
 	def start(self, dir):
 		self.mon = self.fam.monitorDirectory(dir, None)
@@ -155,7 +162,7 @@ class DirectoryMonitor:
 			pass			
 
 		if event.code2str() == "changed":
-			pass
+			pass #client.block_file_send(event.filename)
 
 			# self.connection.write("CHANGE EVENT ON %s\n" % event.filename)
 
@@ -207,6 +214,7 @@ class KipClient:
 			sys.exit(0)
 		print "Connecting to server %s" % server
 		con = ClientConnection(server)
+		self.connection = con
 
 		self.dirmon = DirectoryMonitor(con)
 		try:
@@ -224,6 +232,29 @@ class KipClient:
 	def start(self):
 		while True:
 			self.dirmon.process()
+			self.block_receive()
+
+	def block_receive(self):
+		pass
+
+	def block_file_send(self, filename, fidh):
+		fh = open(filename)
+		contents = fh.read()
+		crypted = self.pub.encrypt(contents, None)[0].encode("base64")
+		block = {"fidh": fidh, "payload": crypted}
+		hv = hash_string(json.dumps(block))
+		signature = self.priv.sign(hv, None)
+		block["sig"] = signature
+		self.block_send(block)
+
+	def block_delta_send(self, filename):
+		pass
+
+	def block_share_send(self, directory):
+		pass
+
+	def block_send(self, cryptedblock):
+		return self.connection.write(json.dumps(cryptedblock))
 
 	def client_init(self, dir="~/.kipstash"):
 		dir = os.path.expanduser(dir)
@@ -251,11 +282,24 @@ class KipClient:
 		self.config.set("client", "workingdir", dir)
 
 	def dirmap_load(self):
-		self.dirmap = {}
-		return {}
+		try:
+			fh = open(self.workingdir+"/dir.map")
+			map = json.loads(fh.read())
+			fh.close()
+			print "Directory map loaded. %d shares." % len(map)
+		except Exception, e:
+			print "Error loading directory map: ", e
+			map = {}
+
+		self.dirmap = map
+		return map
+
 
 	def dirmap_save(self):
-		pass
+		fh = open(self.workingdir+"/dir.map", "w")
+		fh.write(json.dumps(self.dirmap))
+		fh.close()
+		print "Directory map saved"
 
 
 	def filemap_load(self):
@@ -279,6 +323,12 @@ class KipClient:
 
 
 	def file_in_filemap(self, filename):
+		# Returns the FIDH for a file if it exists in the filemap.
+		# If it doesn't, generates a new FIDH and returns that.
+		hv = hash(filename)
+		for key,value in self.filemap.iteritems():
+			if value["hash"] == hv:
+				return key
 		fidh = hash(filename, True)
 		return fidh
 
@@ -286,6 +336,8 @@ class KipClient:
 		info = file_info(filename)
 		if info["mtime"] > self.filemap[fidh]["mtime"]:
 			print "File has been altered while kipstash was down. Sync needed."
+			# TODO: Here we would normally just send a delta
+			self.block_file_send(filename)
 		else:
 			self.filemap[fidh] = info
 
@@ -301,7 +353,7 @@ class KipClient:
 			curname = root.split(directory)[1]
 			if not self.dirmap[directory].has_key(curname):
 				print "New directory %s found" % curname
-				self.dirmap[directory][curname] = []
+				self.dirmap[directory][curname] = {}
 
 			print "Walking %s..." % root
 			for d in dirs:
@@ -312,8 +364,10 @@ class KipClient:
 				filename = "%s/%s" % (root, f)
 				if not self.dirmap[directory][curname].has_key(f):
 					print "Found new file %s" % filename
-					fidh = self.file_in_filemap(filename):
+					fidh = self.file_in_filemap(filename)
 					self.dirmap[directory][curname][f] = fidh
+					# New file found, better send the block.
+					self.block_file_send(filename, fidh)
 				else:
 					self.file_verify(filename, fidh)
 					
