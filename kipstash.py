@@ -77,7 +77,7 @@ def config_save(config, filename):
 def file_info(filename):
 	s = os.stat(filename)
 	hv = hash(filename)
-	return {"mode": s.st_mode, "size": s.st_size, "atime": s.st_atime, "mtime": s.st_mtime, "ctime": s.st_ctime, "hash": hv}
+	return {"mode": s.st_mode, "size": s.st_size, "atime": s.st_atime, "mtime": s.st_mtime, "ctime": s.st_ctime, "hash": hv, "filename": filename}
 
 
 def filemap_verify(filemap, dirmap, connection):
@@ -140,6 +140,7 @@ class DirectoryMonitor:
 		self.client = client
 
 	def start(self, dir):
+		self.dir = dir
 		self.mon = self.fam.monitorDirectory(dir, None)
 
 	def stop(self):
@@ -158,11 +159,18 @@ class DirectoryMonitor:
 			print event.userData,
 		print event.requestID,
 		print event.filename, event.code2str()
+		filename = self.dir + "/" + event.filename
 		if event.code2str() == "created":
 			pass			
 
 		if event.code2str() == "changed":
-			pass #client.block_file_send(event.filename)
+			print pprint.pformat(dir(event))
+			print "Filename '%s' changed!" % filename
+			fidh = self.client.filename_in_filemap(filename)
+			print "FIDH: %s" % fidh
+			print "Sending block to server..."
+			self.client.block_file_send(filename, fidh)
+			print "Sent."
 
 			# self.connection.write("CHANGE EVENT ON %s\n" % event.filename)
 
@@ -216,7 +224,7 @@ class KipClient:
 		con = ClientConnection(server)
 		self.connection = con
 
-		self.dirmon = DirectoryMonitor(con)
+		self.dirmon = DirectoryMonitor(self)
 		try:
 			share_dir = self.config.get("client", "share_dir")
 		except Exception, e:
@@ -322,6 +330,15 @@ class KipClient:
 		print "File map saved"
 
 
+	def filename_in_filemap(self, filename):
+		print "Searching for '%s' in filemap." % filename
+		print "Filemap is currently:"
+		print pprint.pformat(self.filemap)
+		for key,value in self.filemap.iteritems():
+			if value["filename"] == filename:
+				return key
+		return False
+
 	def file_in_filemap(self, filename):
 		# Returns the FIDH for a file if it exists in the filemap.
 		# If it doesn't, generates a new FIDH and returns that.
@@ -337,7 +354,7 @@ class KipClient:
 		if info["mtime"] > self.filemap[fidh]["mtime"]:
 			print "File has been altered while kipstash was down. Sync needed."
 			# TODO: Here we would normally just send a delta
-			self.block_file_send(filename)
+			self.block_file_send(filename, fidh)
 		else:
 			self.filemap[fidh] = info
 
@@ -366,9 +383,12 @@ class KipClient:
 					print "Found new file %s" % filename
 					fidh = self.file_in_filemap(filename)
 					self.dirmap[directory][curname][f] = fidh
+					self.filemap[fidh] = file_info(filename)
 					# New file found, better send the block.
 					self.block_file_send(filename, fidh)
 				else:
+					print "Verifying previously added file."
+					fidh = self.file_in_filemap(filename)
 					self.file_verify(filename, fidh)
 					
 
