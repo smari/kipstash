@@ -25,10 +25,11 @@ In order to share data two requirements need to be solved:
 See doc/IDEAS for ideas how to overcome the requirement that users need to 
 have access to the same server in order to share.
 
-=======
+Authors:
+========
 Smari McCarthy
 Florian Walther
-Pablo
+Pablo Zavala
 
 Background:
 ===========
