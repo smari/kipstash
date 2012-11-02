@@ -1,0 +1,9 @@
+
+Idea: make it distributable
+
+It would be cool if you could overcome the requirement of having access to the same server in order to share data. It should be enough to have the public key of the user to share with. This could either work via
+- a lookup mechanism to find the server that has this data
+- a kind of URL for files wich you could pass on to the users to share with
+
+
+
