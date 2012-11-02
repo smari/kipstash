@@ -1,11 +1,8 @@
-kipstach aims to provide a secure remote data-storage.
+kip stash - a kind of open source secure dropbox / wuala replacement
+====================================================================
 
-Secure in this context means:
-* open source
-* easy to use
-* protect data from beeing read by unauthorized parties while stored on the server
-* protect data from beeing maipulated while stored on the server
-* have the option to run your own server
+Authors: 
+========
 
 Smari McCarthy
 Florian Walther
@@ -117,23 +114,6 @@ dirmap = {
                                 },
                         },
 
-END RSA SIGNED BLOCK ]
-
-
-Filemap format
-==============
-
-On the client side, a file map is maintained which understands the status of all the files currently stored
-
-Each file, when it is first detected, is given a 512 bit unique ID number which will follow it forever, regardless of renames or changes to the file.
-This ID is determined by the SHA512 of the file at that point in time, for now.
-
-When a new file is detected in the directory structure (either at client bootup time or during scan) we check if its hash is equal to
-the last known hash of the file. If it is, all is clear. If not, then the file needs to be synced up to the server.
-
-The Filemap and the Dirmap are JSON dicts.
-
-=======
         "SHARE2":       {
                                 "files":        {
                                 },
