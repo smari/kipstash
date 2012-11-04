@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 from Crypto.PublicKey import RSA
 import ConfigParser
 import os, sys
@@ -19,18 +18,16 @@ DEFAULT_KEY_SIZE = 4097
 def hash(filename, rand=False):
 	# if rand==True, then add 2000 random characters to the end of the file before hashing.
 	# For generating FIDHs.
-	h = hashlib.sha512()
 	try: fh = open(filename)
 	except: return ""
-	h.update(fh.read())
-	if rand:
-		h.update("::" + "".join(["".join(random.sample("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 4)) for x in range(500)]))
-	return h.hexdigest()
+	return hash_string(fh.read())
 
 
-def hash_string(string):
+def hash_string(string, rand=False):
 	h = hashlib.sha512()
 	h.update(string)
+	if rand:
+		h.update("::" + "".join(["".join(random.sample("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 4)) for x in range(500)]))
 	return h.hexdigest()
 
 
@@ -55,11 +52,13 @@ def get_pubkey(publickey):
 	rsa = RSA.construct((state["n"], state["e"]))
 	return rsa
 
+
 def get_privkey(privatekey):
 	state = read_keyblock(privatekey)
 	rsa = RSA.construct((state["n"], state["e"]))
 	rsa.__setstate__(state)
 	return rsa
+
 
 def config_load(filename):
 	config = ConfigParser.ConfigParser()
@@ -70,70 +69,42 @@ def config_load(filename):
 
 	return config
 
+
 def config_save(config, filename):
+	# Write the config file to disk.
 	config.write(open(filename, "w"))
 
 
 def file_info(filename):
+	# Build a full information dictionary about a file's current status.
 	s = os.stat(filename)
 	hv = hash(filename)
 	return {"mode": s.st_mode, "size": s.st_size, "atime": s.st_atime, "mtime": s.st_mtime, "ctime": s.st_ctime, "hash": hv, "filename": filename}
 
 
 def filemap_verify(filemap, dirmap, connection):
+	# Verify the filemap. This might be deprecated (not actually sure!)
 	if filemap == {}:
 		return True
 	pass
 
 
-def block_write():
-	
-	pass
-
-
-def block_parse(blocktext):
-	pass
-
-
-def server_init(dir="~/.kipstash"):
-	dir = os.path.expanduser(dir)
-	
-	if not os.path.exists(dir):
-		print "Initializing server for the first time ever."
-		os.mkdir(dir, 0700)
-
-	if not os.path.exists(dir+"/server.pub"):
-		print "Generating server keys..."
-		server_pubkey = open(dir+"/server.pub", "w")
-		server_privkey = open(dir+"/server.sec", "w")
-		priv, pub = keys_generate()
-		server_pubkey.write(pub)
-		server_privkey.write(priv)
-		server_pubkey.close()
-		server_privkey.close()
-		priv = get_privkey(priv)
-		pub = get_pubkey(pub)
-	else:
-		priv = get_privkey(open(dir+"/server.sec").read())
-		pub = get_pubkey(open(dir+"/server.pub").read())
-		print "Server keys loaded..."
-
-	config = config_load(dir+"/kipstash.cfg")
-
-	return (config, priv, pub)	
-
-
 def diff(file):
+	# Binary diff for delta creation
 	# bsdiff.Diff("foo", "boo")
 	pass
 
 
 def patch(file):
+	# Binary patch for delta application
 	# bsdiff.Patch("foo", 3, [(3, 0, -1)], '\xfc\x00\x00', '')
 	pass
 
 
 class DirectoryMonitor:
+	# Monitors a directory and its subdirectories
+	# TODO: Does not currently monitor subdirectories
+	
 	def __init__(self, client):
 		self.fam = _fam.open()
 		self.mon = None
@@ -176,6 +147,8 @@ class DirectoryMonitor:
 
 
 class ClientConnection:
+	# Manage a connection to a server.
+
 	def __init__(self, server):
 		self.server = server
 		if self.server.find(":") != -1:
@@ -201,10 +174,10 @@ class ClientConnection:
 			sys.exit(0)
 
 	def write(self, data):
-		return self.ssl_sock.write(data)
+		return self.ssl_sock.sendall(data)
 
 	def read(self):
-		return self.ssl_sock.read()
+		return self.ssl_sock.recv()
 
 	def close(self):
 		self.ssl_sock.close()
@@ -271,6 +244,7 @@ class KipClient:
 		if not os.path.exists(dir):
 			print "Initializing client for the first time ever. Generating keys and such."
 			os.mkdir(dir, 0700)
+		if not os.path.exists(dir+"/client.pub"):
 			client_pubkey = open(dir+"/client.pub", "w")
 			client_privkey = open(dir+"/client.sec", "w")
 			priv, pub = keys_generate()
@@ -395,54 +369,209 @@ class KipClient:
 		self.dirmap_save()
 		self.filemap_save()
 
-			
 
 
-def server_clientmanage(stream):
-	data = stream.read()
-	# null data means the client is finished with us
-	while data:
-		print "Data: '%s'" % data
-		# if not do_something(connstream, data):
-		#	# we'll assume do_something returns False
-		#	# when we're finished with client
-		#	break
-		data = stream.read()
-
-
-def server():
-	print "Server starting..."
-	(config, priv, pub) = server_init()
-
-	try:
-		hostname = config.get("server", "hostname")
-		port = config.getint("server", "port")
-		server_certfile = config.get("server", "ssl_cert")
-		server_keyfile = config.get("server", "ssl_key")
-	except:
-		print "Server hostname and port must be configured."
-		sys.exit(0)
-
-	bindsocket = socket.socket()
-	bindsocket.bind((hostname, port))
-	bindsocket.listen(5)
-
-	print "Server listening on %s:%d" % (hostname, port)
-
-	while True:
-		newsocket, fromaddr = bindsocket.accept()
-		print "Client connected from %s:%d..." % fromaddr
-		connstream = ssl.wrap_socket(newsocket, server_side=True, 
-				certfile=server_certfile, keyfile=server_keyfile,
-				ssl_version=ssl.PROTOCOL_TLSv1)
-		print "SSL handshake complete."
+class KipServer:
+	def __init__(self):
+		print "Server starting..."
+		self.server_init()
 		try:
-			server_clientmanage(connstream)
-		finally:
-			connstream.shutdown(socket.SHUT_RDWR)
-			connstream.close()
+			self.hostname = self.config.get("server", "hostname")
+			self.port = self.config.getint("server", "port")
+			self.server_certfile = self.config.get("server", "ssl_cert")
+			self.server_keyfile = self.config.get("server", "ssl_key")
+		except:
+			print "Server hostname and port must be configured."
+			sys.exit(0)
 
-	print "Server exiting..."
+		self.socket_start()
+		self.serve()
+		print "Server exiting..."
+
+	def socket_start(self):
+		self.bindsocket = socket.socket()
+		self.bindsocket.bind((self.hostname, self.port))
+		self.bindsocket.listen(5)
+
+		print "Server listening on %s:%d" % (self.hostname, self.port)
+
+	def send_error(self, errorcode, errortext):
+		# TODO: Determine whether it makes sense to encrypt messages to client
+		print "ERROR %d: %s" % (errorcode, errortext)
+		block = {"type": "error", "error": errorcode, "text": errortext}
+		self.block_send(block)
+
+	def block_send(self, block):
+		# Sign every block before we send it.
+		s = json.dumps(block)
+		hv = hash_string(s)
+		block["signature"] = self.priv.sign(hv)
+		self.stream.send(block)
+
+	def block_signature_verify(self, block, signature):
+		s = json.dumps(block)
+		hv = hash_string(s)
+		for key in self.clientkeys:
+			if key.verify(hv, (signature,)):
+				return key
+		return None
+
+	def block_parse(self, block):
+		try:
+			assert(type(block)==dict)		# All blocks must be dicts
+			assert(block.has_key("type"))		# All blocks must report their type
+		except AssertionError, e:
+			self.send_error(101, "Invalid block format")
+		try:
+			assert(block.has_key("signature"))	# All blocks must be signed
+		except AssertionError, e:
+			self.send_error(102, "All blocks must be signed")
+
+		signature = block.pop("signature")
+		clientkey = self.block_signature_verify(block, signature)
+		if clientkey == None:
+			self.send_error(200, "Unknown user key or bad signature. GOODBYE!")
+			self.stream.shutdown(socket.SHUT_RDWR)
+			self.stream.close()
+			return
+
+		block["client"] = clientkey
+
+		# At this point, we've verified the validity of the block and the identity of the client.
+		if	type == "file":		self.block_parse_file(block)
+		elif 	type == "delta":	self.block_parse_delta(block)
+		elif	type == "query":	self.block_parse_query(block)
+		elif	type == "delete":	self.block_parse_delete(block)
+		elif	type == "share":	self.block_parse_share(block)
+		elif	type == "error":	self.block_parse_error(block)
+		else:	self.send_error(103, "Block type unknown")
+	
+	def block_parse_file(self, block):
+		try:	assert(block.has_key("fidh"))		# All file blocks must have a fidh
+		except AssertionError, e:
+			self.send_error(120, "File block missing FIDH")
+
+		try:	assert(block.has_key("to"))		# All file blocks must have a TO
+		except AssertionError, e:
+			self.send_error(121, "File block missing TO")
+		
+		# TODO:
+		# If (FIDH, clientkey hash) pair exist in storage, remove existing file and deltas
+		# Push (FIDH, clientkey hash, file) to storage somewhere
+
+
+	def block_parse_delete(self, block):
+		try:	assert(block.has_key("fidh"))		# All delete blocks must have a fidh
+		except AssertionError, e:
+			self.send_error(120, "Delete block missing FIDH")
+
+		# TODO:
+		# If (FIDH, clientkey hash) pair exist in storage, remove existing file and deltas
+
+
+	def block_parse_delta(self, block):
+		try:	assert(block.has_key("fidh"))		# All file blocks must have a fidh
+		except AssertionError, e:
+			self.send_error(120, "Delta block missing FIDH")
+
+		try:	assert(block.has_key("to"))		# All file blocks must have a TO
+		except AssertionError, e:
+			self.send_error(121, "File block missing TO")
+
+		# TODO:
+		# Push (FIDH, clientkey hash, delta) to storage somewhere
+
+	def block_parse_query(self, block):
+		pass
+
+	def block_parse_error(self, block):
+		pass
+
+	def block_parse_share(self, block):
+		pass
+
+	def client_manage(self):
+		decoder = json.JSONDecoder()
+		data = True	# Start as True to pass into the loop.
+		# null data means the client is finished with us
+		buffer = ""
+		while data:
+			data = self.stream.recv()
+			buffer += data
+
+			if buffer[0] != '{':
+				self.send_error(self.stream, 100, "Invalid block format")
+				buffer = ""
+				continue
+			try:
+				blob, mark = decoder.raw_decode(buffer)
+				buffer = buffer[mark:]
+				self.block_parse(blob)
+			except ValueError:
+				# Not a valid JSON blob yet.
+				continue
+
+	def serve(self):
+		# TODO: fork() or thread to allow multiple simultaneous connections
+		while True:
+			newsocket, fromaddr = bindsocket.accept()
+			print "Client connected from %s..." % fromaddr
+			connstream = ssl.wrap_socket(newsocket, server_side=True, 
+					certfile=self.server_certfile, keyfile=self.server_keyfile,
+					ssl_version=ssl.PROTOCOL_TLSv1)
+			print "SSL handshake complete."
+			try:
+				self.stream = connstream
+				self.client_manage(connstream)
+			finally:
+				connstream.shutdown(socket.SHUT_RDWR)
+				connstream.close()
+	
+
+	def server_init(self, dir="~/.kipstash"):
+		# Initialize the server.
+		# TODO: Make sure the server can recover cleanly from missing or corrupt files
+		# TODO: Make location of server keys configurable
+		dir = os.path.expanduser(dir)
+	
+		if not os.path.exists(dir):
+			print "Initializing server for the first time ever."
+			os.mkdir(dir, 0700)
+
+		self.config = config_load(dir+"/kipstash.cfg")
+
+		if not os.path.exists(dir+"/server.pub"):
+			print "Generating server keys..."
+			server_pubkey = open(dir+"/server.pub", "w")
+			server_privkey = open(dir+"/server.sec", "w")
+			priv, pub = keys_generate()
+			server_pubkey.write(pub)
+			server_privkey.write(priv)
+			server_pubkey.close()
+			server_privkey.close()
+			self.priv = get_privkey(priv)
+			self.pub = get_pubkey(pub)
+		else:
+			# TODO: Make this fail less hard.
+			self.priv = get_privkey(open(dir+"/server.sec").read())
+			self.pub = get_pubkey(open(dir+"/server.pub").read())
+			print "Server keys loaded..."
+
+		self.clientkeys = []
+		clientkeysfile = dir+"/clientkeys.json"	# TODO: Make this configurable
+		try:
+			ke = open(clientkeysfile).read()
+			keys = json.loads(ke)
+			for key in keys:
+				self.clientkeys.append(get_pubkey(key))
+		except IOError, e:
+			print "Error loading client keys from %s: %s." % (clientkeysfile, e)
+		except ValueError, e:
+			print "Error loading client keys from %s: %s." % (clientkeysfile, e)
+
+		if self.clientkeys == []:
+			print "No reason to run without any client keys. Bailing."
+			sys.exit(0)
 
 
 if __name__ == "__main__":
@@ -454,6 +583,6 @@ if __name__ == "__main__":
 			servermode = True
 
 	if servermode:
-		server()
+		k = KipServer()
 	else:
 		k = KipClient()
