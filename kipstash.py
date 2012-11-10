@@ -580,7 +580,7 @@ class KipServer:
 	def clientkeys_add(self, key):
 		pass
 
-	def clientkeys_save(self, clientkeysfile)
+	def clientkeys_save(self, clientkeysfile):
 		ke = open(clientkeysfile, "w")
 		ke.write(json.dumps(self.clientkeys))
 		ke.close()
