@@ -594,9 +594,10 @@ if __name__ == "__main__":
 		if arg == "-s":
 			servermode = True
 		if arg == "-k":
-			
-
+			pass
+	
 	if servermode:
 		k = KipServer()
+		k.runserver()
 	else:
 		k = KipClient()
