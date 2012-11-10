@@ -373,6 +373,9 @@ class KipClient:
 
 class KipServer:
 	def __init__(self):
+		pass
+
+	def runserver(self):
 		print "Server starting..."
 		self.server_init()
 		try:
@@ -557,8 +560,13 @@ class KipServer:
 			self.pub = get_pubkey(open(dir+"/server.pub").read())
 			print "Server keys loaded..."
 
+		self.clientkeys_load(dir+"/clientkeys.json")  # TODO: Make this configurable
+		if self.clientkeys == []:
+			print "No reason to run without any client keys. Bailing."
+			sys.exit(0)
+
+	def clientkeys_load(self, clientkeysfile):
 		self.clientkeys = []
-		clientkeysfile = dir+"/clientkeys.json"	# TODO: Make this configurable
 		try:
 			ke = open(clientkeysfile).read()
 			keys = json.loads(ke)
@@ -569,18 +577,24 @@ class KipServer:
 		except ValueError, e:
 			print "Error loading client keys from %s: %s." % (clientkeysfile, e)
 
-		if self.clientkeys == []:
-			print "No reason to run without any client keys. Bailing."
-			sys.exit(0)
+	def clientkeys_add(self, key):
+		pass
+
+	def clientkeys_save(self, clientkeysfile)
+		ke = open(clientkeysfile, "w")
+		ke.write(json.dumps(self.clientkeys))
+		ke.close()
 
 
 if __name__ == "__main__":
 	servermode = False
 
-	optlist, args = getopt.getopt(sys.argv[1:], 's')
+	optlist, args = getopt.getopt(sys.argv[1:], 'sk:')
 	for arg, value in optlist:
 		if arg == "-s":
 			servermode = True
+		if arg == "-k":
+			
 
 	if servermode:
 		k = KipServer()
