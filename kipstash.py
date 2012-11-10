@@ -11,8 +11,25 @@ import pprint
 import hashlib
 import random
 
+VERSION = "0"
 DEFAULT_SERVER_PORT = 3477
 DEFAULT_KEY_SIZE = 4097
+HELP_TEXT = """
+ Kipstash v%s
+
+ Usage: python kipstash.py <arguments>
+
+ Arguments:
+	-c		Run in client mode (default)
+	-s		Run in server mode
+	-a <file>	Add key to server's client keys file
+	-r <file>	Remove key from server's client keys file
+
+""" % (VERSION)
+
+
+def help():
+	print HELP_TEXT
 	
 
 def hash(filename, rand=False):
@@ -565,6 +582,7 @@ class KipServer:
 			print "No reason to run without any client keys. Bailing."
 			sys.exit(0)
 
+
 	def clientkeys_load(self, clientkeysfile):
 		self.clientkeys = []
 		try:
@@ -572,13 +590,44 @@ class KipServer:
 			keys = json.loads(ke)
 			for key in keys:
 				self.clientkeys.append(get_pubkey(key))
+
 		except IOError, e:
 			print "Error loading client keys from %s: %s." % (clientkeysfile, e)
 		except ValueError, e:
 			print "Error loading client keys from %s: %s." % (clientkeysfile, e)
 
+
+	def clientkeys_addfile(self, file):
+		try:	key = open(file)
+		except IOError, e:
+			print "Could not load keyfile: %s" % e
+			return False
+
+		key = key.read()
+		key = get_pubkey(key)
+		self.clientkeys_add(key)
+		print "Added client key from file %s." % file
+
+
+	def clientkeys_addfile(self, file):
+		try:	key = open(file)
+		except IOError, e:
+			print "Could not load keyfile: %s" % e
+			return False
+
+		key = key.read()
+		key = get_pubkey(key)
+		self.clientkeys_remove(key)
+		print "Removed client key from file %s." % file
+
+
 	def clientkeys_add(self, key):
-		pass
+		self.clientkeys.append(key)
+
+
+	def clientkeys_remove(self, key):
+		self.clientkeys.remove(key)
+
 
 	def clientkeys_save(self, clientkeysfile):
 		ke = open(clientkeysfile, "w")
@@ -589,12 +638,23 @@ class KipServer:
 if __name__ == "__main__":
 	servermode = False
 
-	optlist, args = getopt.getopt(sys.argv[1:], 'sk:')
+	optlist, args = getopt.getopt(sys.argv[1:], 'hcsa:r:')
 	for arg, value in optlist:
+		if arg == "-c":
+			servermode = False
 		if arg == "-s":
 			servermode = True
-		if arg == "-k":
-			pass
+		if arg == "-a":
+			k = KipServer()
+			k.clientkeys_add(value)
+			sys.exit(0)
+		if arg == "-r":
+			k = KipServer()
+			k.clientkeys_remove(value)
+			sys.exit(0)
+		if arg == "-h":
+			help()
+			sys.exit(0)
 	
 	if servermode:
 		k = KipServer()
