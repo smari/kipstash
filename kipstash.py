@@ -609,7 +609,7 @@ class KipServer:
 		print "Added client key from file %s." % file
 
 
-	def clientkeys_addfile(self, file):
+	def clientkeys_removefile(self, file):
 		try:	key = open(file)
 		except IOError, e:
 			print "Could not load keyfile: %s" % e
